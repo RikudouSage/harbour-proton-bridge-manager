@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Icon=harbour-proton-bridge-manager
+Exec=harbour-proton-bridge-manager
+Name=ProtonBridge Control
+
+[X-Sailjail]
+OrganizationName=cz.chrastecky
+ApplicationName=proton-bridge-manager
+Sandboxing=Disabled

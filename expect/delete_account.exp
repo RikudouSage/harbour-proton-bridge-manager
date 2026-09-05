@@ -1,0 +1,76 @@
+#!/usr/bin/expect -f
+
+if {$argc != 1} {
+    puts stderr "Usage: $argv0 <account_name>"
+    exit 2
+}
+
+set account [lindex $argv 0]
+set timeout 15
+set max_retries 100
+
+log_user 0
+
+#spawn protonmail-bridge -c
+spawn proton-bridge -c
+
+expect {
+    -exact ">>>" {}
+    timeout {
+        puts stderr "Timed out waiting for Proton Bridge prompt"
+        exit 1
+    }
+}
+
+for {set attempt 1} {$attempt <= $max_retries} {incr attempt} {
+
+    send -- "delete $account\r"
+
+    expect {
+        -exact "Are you sure you want to" {
+            send -- "yes\r"
+        }
+        timeout {
+            puts stderr "Timed out waiting for delete confirmation"
+            exit 1
+        }
+    }
+
+    # Capture Bridge's response up to the next prompt.
+    expect {
+        -re {(?s)(.*?)>>>} {
+            set output $expect_out(1,string)
+        }
+        timeout {
+            puts stderr "Timed out waiting for account deletion result"
+            exit 1
+        }
+    }
+
+    # Account is still busy. Retry shortly.
+    if {[string first "currently in use" $output] >= 0} {
+        after 100
+        continue
+    }
+
+    # Some other deletion error occurred.
+    if {[string first "Failed to delete" $output] >= 0} {
+        puts stderr "ERR_DELETE_FAILED"
+        send -- "exit\r"
+        expect eof
+        exit 1
+    }
+
+    # No error reported: deletion succeeded.
+    puts "OK"
+
+    send -- "exit\r"
+    expect eof
+    exit 0
+}
+
+puts stderr "ERR_ACCOUNT_IN_USE"
+
+send -- "exit\r"
+expect eof
+exit 3

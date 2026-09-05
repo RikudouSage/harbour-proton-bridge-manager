@@ -1,0 +1,117 @@
+#!/usr/bin/expect -f
+
+# stdin protocol:
+#   line 1: username
+#   line 2: password
+#   line 3: optional 2FA code (may be empty)
+#
+# Exit codes:
+#   0 = success
+#   1 = Bridge/login failure
+#   2 = invalid input
+#   3 = 2FA required but not supplied
+
+log_user 0
+set timeout 30
+
+if {[gets stdin username] < 0 || $username eq ""} {
+    puts stderr "Missing username"
+    exit 2
+}
+
+if {[gets stdin password] < 0 || $password eq ""} {
+    puts stderr "Missing password"
+    exit 2
+}
+
+# 2FA is optional.
+set twofactor ""
+if {[gets stdin twofactor] >= 0} {
+    set twofactor [string trimright $twofactor "\r"]
+}
+
+set username [string trimright $username "\r"]
+set password [string trimright $password "\r"]
+
+#spawn protonmail-bridge -c
+spawn proton-bridge -c
+
+expect {
+    -exact ">>>" {
+        send -- "login\r"
+    }
+    timeout {
+        puts stderr "Timed out waiting for Proton Bridge prompt"
+        exit 1
+    }
+}
+
+expect {
+    -exact "Username:" {
+        send -- "$username\r"
+    }
+    timeout {
+        puts stderr "Timed out waiting for username prompt"
+        exit 1
+    }
+}
+
+expect {
+    -exact "Password:" {
+        send -- "$password\r"
+    }
+    timeout {
+        puts stderr "Timed out waiting for password prompt"
+        exit 1
+    }
+}
+
+expect {
+    -re {Account .* was added successfully\.} {
+        puts "OK"
+    }
+
+    -exact "Two factor code:" {
+        if {$twofactor eq ""} {
+            puts stderr "ERR_2FA_REQUIRED"
+            exit 3
+        }
+
+        send -i $spawn_id -- "$twofactor\r"
+
+        expect {
+            -re {Account .* was added successfully\.} {
+                puts "OK"
+            }
+
+            -re {(?i)(incorrect|invalid|failed|error)} {
+                puts stderr "Authentication failed"
+                exit 1
+            }
+
+            timeout {
+                puts stderr "Timed out waiting for authentication result"
+                exit 1
+            }
+        }
+    }
+
+    -re {(?i)(incorrect|invalid|failed|error)} {
+        puts stderr "Authentication failed"
+        exit 1
+    }
+
+    timeout {
+        puts stderr "Timed out waiting for authentication result"
+        exit 1
+    }
+}
+
+send -i $spawn_id -- "exit\r"
+
+expect {
+    eof {}
+    timeout {}
+}
+
+exit 0

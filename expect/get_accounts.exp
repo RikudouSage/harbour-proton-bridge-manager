@@ -1,0 +1,68 @@
+#!/usr/bin/expect -f
+
+log_user 0
+set timeout 10
+
+spawn proton-bridge -c
+#spawn protonmail-bridge -c
+
+# Wait for Bridge to become ready.
+expect {
+    -exact ">>>" {}
+    timeout {
+        puts stderr "Timed out waiting for Proton Bridge prompt"
+        exit 1
+    }
+}
+
+set max_retries 60
+
+for {set attempt 1} {$attempt <= $max_retries} {incr attempt} {
+
+    send -- "info\r"
+
+    #
+    # First wait until the command itself has been echoed by the PTY.
+    # This prevents a stale >>> from being mistaken for the prompt
+    # belonging to this invocation of "info".
+    #
+    expect {
+        -re {info\r?\n} {}
+        timeout {
+            puts stderr "Timed out waiting for info command echo"
+            exit 1
+        }
+    }
+
+    #
+    # Now everything up to the NEXT >>> belongs to this invocation.
+    #
+    expect {
+        -re {(?s)(.*?)>>>} {
+            set output $expect_out(1,string)
+        }
+        timeout {
+            puts stderr "Timed out waiting for info result"
+            exit 1
+        }
+    }
+
+    # If even one account is locked, wait and retry the whole command.
+    if {[string first "is currently locked" $output] >= 0} {
+        after 500
+        continue
+    }
+
+    # No locked accounts; this is the useful result.
+    puts -nonewline $output
+
+    send -- "exit\r"
+    expect eof
+    exit 0
+}
+
+puts stderr "Accounts remained locked after $max_retries attempts"
+
+send -- "exit\r"
+expect eof
+exit 1
