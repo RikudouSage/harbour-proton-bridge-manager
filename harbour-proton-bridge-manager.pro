@@ -35,7 +35,8 @@ CONFIG += sailfishapp_i18n sailfishapp_i18n_idbased
 # following TRANSLATIONS line. And also do not forget to
 # modify the localized app name in the the .desktop file.
 TRANSLATIONS += translations/harbour-proton-bridge-manager-en.ts \
-                translations/harbour-proton-bridge-manager-cs.ts
+                translations/harbour-proton-bridge-manager-cs.ts \
+                translations/harbour-proton-bridge-manager-no.ts
 
 HEADERS += \
     src/bridgecontroller.h
