@@ -1,7 +1,7 @@
 Name:       harbour-proton-bridge-manager
 
 Summary:    ProtonBridge Manager
-Version:    1.0.0
+Version:    1.0.1
 Release:    1
 License:    MIT
 URL:        https://github.com/RikudouSage/harbour-poton-bridge-manager
